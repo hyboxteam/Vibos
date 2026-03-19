@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Downloader Pro - Download from Instagram, TikTok, YouTube & more</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Media Downloader Pro</h1>
+            <p class="text-gray-600">Download videos, images & thumbnails from social media platforms</p>
+            <div class="flex flex-wrap justify-center gap-2 mt-4 text-sm text-gray-500">
+                <span class="bg-blue-100 px-3 py-1 rounded">Instagram</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">TikTok</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">YouTube</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">Twitter/X</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">Facebook</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">Reddit</span>
+                <span class="bg-blue-100 px-3 py-1 rounded">Direct Images</span>
+            </div>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="mb-4">
+                <label for="url" class="block text-gray-700 text-sm font-bold mb-2">Paste URL here:</label>
+                <div class="flex gap-2">
+                    <input type="url" id="url" placeholder="https://instagram.com/p/... or https://tiktok.com/@.../video/..." 
+                           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    <button onclick="extractInfo()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition">
+                        Extract
+                    </button>
+                </div>
+            </div>
+
+            <div id="loading" class="hidden text-center py-8">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
+                <p class="text-gray-600">Extracting media information...</p>
+            </div>
+
+            <div id="error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+
+            <div id="results" class="hidden">
+                <div class="border-t pt-4">
+                    <div class="flex flex-col md:flex-row gap-6 mb-6">
+                        <div class="md:w-1/3">
+                            <img id="thumbnail" src="" alt="Thumbnail" class="rounded-lg shadow-md w-full">
+                        </div>
+                        <div class="md:w-2/3">
+                            <h3 id="title" class="text-xl font-bold mb-2"></h3>
+                            <p id="uploader" class="text-gray-600 mb-2"></p>
+                            <p id="description" class="text-gray-500 text-sm mb-4"></p>
+                            <p id="platform" class="text-sm bg-gray-100 inline-block px-2 py-1 rounded"></p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Available Formats:</label>
+                        <div id="formats" class="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 border rounded"></div>
+                    </div>
+
+                    <div class="flex items-center gap-4 mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="downloadThumb" class="mr-2">
+                            <span class="text-sm text-gray-700">Also download thumbnail</span>
+                        </label>
+                    </div>
+
+                    <button onclick="downloadMedia()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition">
+                        Download Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-4">How to use:</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Copy the URL of the video/image you want to download</li>
+                <li>Paste it in the input box above and click "Extract"</li>
+                <li>Select your preferred quality/format</li>
+                <li>Optionally check "Also download thumbnail"</li>
+                <li>Click "Download Selected"</li>
+            </ol>
+            <p class="mt-4 text-sm text-gray-500">Note: Please respect copyright and terms of service of respective platforms.</p>
+        </div>
+    </div>
+
+    <script>
+        let currentMediaInfo = null;
+
+        async function extractInfo() {
+            const url = document.getElementById('url').value.trim();
+            if (!url) {
+                showError('Please enter a URL');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                const response = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to extract media info');
+                }
+
+                currentMediaInfo = data;
+                displayResults(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayResults(info) {
+            document.getElementById('title').textContent = info.title || 'Untitled';
+            document.getElementById('uploader').textContent = info.uploader ? `By: ${info.uploader}` : '';
+            document.getElementById('description').textContent = info.description || '';
+            document.getElementById('platform').textContent = `Platform: ${info.platform}`;
+            
+            if (info.thumbnail) {
+                document.getElementById('thumbnail').src = info.thumbnail;
+            }
+
+            const formatsContainer = document.getElementById('formats');
+            formatsContainer.innerHTML = '';
+
+            if (info.formats && info.formats.length > 0) {
+                info.formats.forEach(format => {
+                    const quality = format.height ? `${format.height}p` : (format.format_note || format.quality || 'Unknown');
+                    const ext = format.ext || 'mp4';
+                    const filesize = format.filesize ? ` (${(format.filesize / 1024 / 1024).toFixed(2)} MB)` : '';
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'format-btn text-left p-2 border rounded hover:bg-blue-50 transition text-sm';
+                    btn.setAttribute('data-format-id', format.format_id);
+                    btn.innerHTML = `
+                        <div class="font-medium">${quality} - ${ext}</div>
+                        <div class="text-xs text-gray-500">${format.vcodec !== 'none' ? 'Video' : 'Audio'}${filesize}</div>
+                    `;
+                    
+                    btn.onclick = () => selectFormat(format.format_id);
+                    formatsContainer.appendChild(btn);
+                });
+            } else {
+                formatsContainer.innerHTML = '<p class="col-span-3 text-gray-500">No formats available</p>';
+            }
+
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function selectFormat(formatId) {
+            document.querySelectorAll('.format-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'border-blue-500');
+            });
+            
+            const selected = document.querySelector(`[data-format-id="${formatId}"]`);
+            if (selected) {
+                selected.classList.add('bg-blue-100', 'border-blue-500');
+            }
+            
+            window.selectedFormat = formatId;
+        }
+
+        async function downloadMedia() {
+            if (!currentMediaInfo) return;
+
+            const formatId = window.selectedFormat || 'best';
+            const downloadThumb = document.getElementById('downloadThumb').checked;
+
+            try {
+                showLoading(true);
+                
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        url: document.getElementById('url').value.trim(),
+                        format_id: formatId,
+                        download_thumbnail: downloadThumb
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Download failed');
+                }
+
+                if (data.file) {
+                    window.location.href = `/api/get_file/${data.file}`;
+                    
+                    if (data.thumbnail) {
+                        setTimeout(() => {
+                            window.location.href = `/api/get_file/${data.thumbnail}`;
+                        }, 500);
+                    }
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        // Auto-extract on paste (optional)
+        document.getElementById('url').addEventListener('paste', (e) => {
+            setTimeout(extractInfo, 100);
+        });
+    </script>
+</body>
+</html>
